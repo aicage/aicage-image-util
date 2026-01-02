@@ -130,6 +130,8 @@ jobs:
           platforms: ${{ env.PLATFORM }}
           tags: |
             ${{ env.IMAGE_TEST_TAG }}
+          labels: |
+            org.opencontainers.image.description=Utility image for aicage runtime tasks
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.0.0
