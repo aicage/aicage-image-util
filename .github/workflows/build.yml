@@ -64,12 +64,12 @@ jobs:
       ARCH_SUFFIX: ${{ matrix.arch }}
       ROOT_DIR: ${{ github.workspace }}
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
-      IMAGE_NAME: aicage/aicage-image-util
-      MANIFEST_VERSION_TAG: aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_LATEST_TAG: aicage/aicage-image-util:latest
-      IMAGE_VERSION_TAG: aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}
-      IMAGE_LATEST_TAG: aicage/aicage-image-util:latest-${{ matrix.arch }}
-      IMAGE_TEST_TAG: aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}-test
+      IMAGE_NAME: ghcr.io/aicage/aicage-image-util
+      MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
+      MANIFEST_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest
+      IMAGE_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}
+      IMAGE_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest-${{ matrix.arch }}
+      IMAGE_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}-test
 
     steps:
       - name: Checkout
@@ -85,8 +85,9 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3.6.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build test image tag
         id: build_image
@@ -153,10 +154,10 @@ jobs:
     env:
       ROOT_DIR: ${{ github.workspace }}
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
-      IMAGE_NAME: aicage/aicage-image-util
-      MANIFEST_VERSION_TAG: aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_LATEST_TAG: aicage/aicage-image-util:latest
-      MANIFEST_TEST_TAG: aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-test
+      IMAGE_NAME: ghcr.io/aicage/aicage-image-util
+      MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
+      MANIFEST_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest
+      MANIFEST_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-test
 
     steps:
       - name: Checkout
@@ -194,8 +195,9 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3.6.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish test multi-arch manifest
         run: |
