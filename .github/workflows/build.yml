@@ -96,9 +96,9 @@ jobs:
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
       IMAGE_NAME: ghcr.io/aicage/aicage-image-util
       MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest
+      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version
       IMAGE_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}
-      IMAGE_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest-${{ matrix.arch }}
+      IMAGE_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version-${{ matrix.arch }}
       IMAGE_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}-test
 
     steps:
@@ -156,7 +156,7 @@ jobs:
           set -euo pipefail
           docker buildx imagetools create \
             --tag "${IMAGE_VERSION_TAG}" \
-            --tag "${IMAGE_LATEST_TAG}" \
+            --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
 
       - name: Install ORAS
@@ -188,7 +188,7 @@ jobs:
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
       IMAGE_NAME: ghcr.io/aicage/aicage-image-util
       MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_LATEST_TAG: ghcr.io/aicage/aicage-image-util:latest
+      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version
       MANIFEST_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-test
 
     steps:
@@ -262,7 +262,7 @@ jobs:
           set -euo pipefail
           docker buildx imagetools create \
             --tag "${MANIFEST_VERSION_TAG}" \
-            --tag "${MANIFEST_LATEST_TAG}" \
+            --tag "${MANIFEST_PURPOSE_TAG}" \
             "${MANIFEST_TEST_TAG}"
 
       - name: Install ORAS
