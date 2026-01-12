@@ -133,6 +133,21 @@ jobs:
           labels: |
             org.opencontainers.image.description=Utility image for aicage runtime tasks
 
+      - name: Download agents from 'aicage-image' and test their version.sh
+        run: |
+          set -euo pipefail
+          TMPDIR="$(mktemp -d)" || (echo "Failed to create temp dir" >&2 && exit 1)
+          curl -fsSL \
+            --retry 8 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            --max-time 600 \
+            -o "${TMPDIR}/agents.tar.gz" \
+            https://github.com/aicage/aicage-image/releases/latest/download/agents.tar.gz
+          tar -xzf "${TMPDIR}"/agents.tar.gz -C "${TMPDIR}"
+          scripts/version-image-check.sh "${TMPDIR}"/agents "${IMAGE_TEST_TAG}"
+          rm -rf "${TMPDIR}"
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.0.0
 
