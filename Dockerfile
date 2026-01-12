@@ -1,17 +1,16 @@
-FROM ubuntu:latest
+FROM node:alpine
 
-RUN apt-get update \
-  && apt-get install -y \
+RUN apk add --no-cache \
     bash \
     ca-certificates \
     curl \
     git \
     jq \
-    nodejs \
-    npm \
+    py3-pip \
     python3 \
-    python3-pip \
     tar \
-  && rm -rf /var/lib/apt/lists/*
+    unzip \
+    xz \
+    yq
 
-CMD ["/bin/bash"]
+CMD ["/bin/sh"]
