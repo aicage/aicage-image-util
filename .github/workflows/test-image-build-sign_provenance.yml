@@ -57,6 +57,8 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
       UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
+    outputs:
+      INDEX_DIGEST_${{ matrix.arch }}: ${{ steps.save-digest.outputs.INDEX_DIGEST }}
 
     steps:
 
@@ -111,13 +113,6 @@ jobs:
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
-          
-          # IMAGE_VERSION_ID="$(
-          #   gh api -H "Accept: application/vnd.github+json" \
-          #     /orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions \
-          #   | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
-          #   | head -n1
-          # )"
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
@@ -187,20 +182,14 @@ jobs:
             --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_REF}@${INDEX_DIGEST}"
 
-# Disabled: tags for images can't be deleted without deleting the image
-# Error response from registry: unsupported: The operation is unsupported.
-#      - name: Install ORAS
-#        uses: oras-project/setup-oras@v1
-#
-#      - name: Delete test image tag
-#        run: |
-#          set -euo pipefail
-#          oras manifest delete "${IMAGE_TEST_TAG}" --force
-
       - name: Save image digest
+        id: save-digest
         run: |
           set -euo pipefail
           printf '%s\n' "${INDEX_DIGEST}" > INDEX_DIGEST-${{ matrix.arch }}.txt
+          {
+            echo "INDEX_DIGEST=${INDEX_DIGEST_$}"
+          } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
       - name: Upload image digest
         uses: actions/upload-artifact@v4
@@ -269,6 +258,8 @@ jobs:
         run: |
           set -euo pipefail
           find digest
+          echo "job-output INDEX_DIGEST_amd64=${{ n${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
+          echo "job-output INDEX_DIGEST_arm64=${{ n${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
 
       - name: Load digests
         run: |
@@ -325,13 +316,3 @@ jobs:
             --tag "${MANIFEST_VERSION_TAG}" \
             --tag "${MANIFEST_PURPOSE_TAG}" \
             "${MANIFEST_TEST_TAG}"
-
-# Disabled: tags can't be deleted without deleting the manifest
-# Error response from registry: unsupported: The operation is unsupported.
-#      - name: Install ORAS
-#        uses: oras-project/setup-oras@v1
-#
-#      - name: Delete test manifest tag
-#        run: |
-#          set -euo pipefail
-#          oras manifest delete "${MANIFEST_TEST_TAG}" --force
