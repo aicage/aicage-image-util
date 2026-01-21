@@ -116,13 +116,13 @@ jobs:
 
           echo "IMAGE_OWNER=${IMAGE_OWNER}"
           echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}"
-          echo "ENDPOINT=/orgs/${IMAGE_OWNER}/pkgs/container/${IMAGE_REPOSITORY}/versions"
+          echo "ENDPOINT=/orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions"
           
-          gh api -i "/orgs/${IMAGE_OWNER}/pkgs/container/${IMAGE_REPOSITORY}/versions" | head -n 40
+          gh api -i "/orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions" | head -n 40
           
           IMAGE_VERSION_ID="$(
             gh api -H "Accept: application/vnd.github+json" \
-              /users/${IMAGE_OWNER}/pkgs/container/${IMAGE_REPOSITORY}/versions \
+              /orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions \
             | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
             | head -n1
           )"
