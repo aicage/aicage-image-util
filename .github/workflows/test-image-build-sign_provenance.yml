@@ -25,19 +25,19 @@ jobs:
     name: Set global vars
     runs-on: ubuntu-latest
     outputs:
+      IMAGE_REF: ${{ steps.output-vars.outputs.IMAGE_REF }}
       UNIQUE: ${{ steps.output-vars.outputs.UNIQUE }}
     steps:
       - name: Output global vars
         id: output-vars
         run: |
           set -euo pipefail
-          UNIQUE="${{ github.sha }}-$(uuidgen)"
           IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
+          UNIQUE="${{ github.sha }}-$(uuidgen)"
           {
-            echo "UNIQUE=${UNIQUE}"
             echo "IMAGE_REF=${IMAGE_REF}"
-          } >> "$GITHUB_OUTPUT"
-          echo "UNIQUE: ${UNIQUE}" >&2
+            echo "UNIQUE=${UNIQUE}"
+          } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
   build:
     name: "${{ matrix.arch }}: Build, sign, and publish image util"
@@ -70,27 +70,7 @@ jobs:
             echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
             echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
             echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
-          } >> "$GITHUB_ENV"
-
-      - name: Debug print
-        run: |
-          set -euo pipefail
-          echo
-          echo "# Global env"
-          echo
-          echo "IMAGE_REGISTRY=${IMAGE_REGISTRY}"
-          echo "VERSION_TAG=${VERSION_TAG}"
-          echo "PURPOSE_TAG=${PURPOSE_TAG}"
-          echo "DOCKERFILE=${DOCKERFILE}"
-          echo "BUILD_CONTEXT=${BUILD_CONTEXT}"
-          echo "UNIQUE=${UNIQUE}"
-          echo
-          echo "# Job env"
-          echo
-          echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
-          echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
-          echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
-          echo
+          } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Checkout
         uses: actions/checkout@v6.0.1
@@ -143,25 +123,7 @@ jobs:
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
             echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
             # echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
-          } >> "$GITHUB_ENV"
-
-      - name: Debug print test image
-        run: |
-          set -euo pipefail
-          echo
-          echo "# Raw build-push-action outputs"
-          echo
-          echo 'imageid=${{ steps.build_image.outputs.imageid }}'
-          echo 'digest=${{ steps.build_image.outputs.digest }}'
-          # echo 'metadata=$#{{ steps.build_image.outputs.metadata }}'
-          echo
-          echo "# ENV-var digests"
-          echo
-          echo "INDEX_DIGEST=${INDEX_DIGEST}"
-          echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
-          echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
-          # echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
-          echo
+          } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Test image
         uses: addnab/docker-run-action@v3
@@ -286,7 +248,7 @@ jobs:
             echo "MANIFEST_VERSION_TAG=${MANIFEST_VERSION_TAG}"
             echo "MANIFEST_PURPOSE_TAG=${MANIFEST_PURPOSE_TAG}"
             echo "MANIFEST_TEST_TAG=${MANIFEST_TEST_TAG}"
-          } >> "$GITHUB_ENV"
+          } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Checkout
         uses: actions/checkout@v6.0.1
@@ -316,7 +278,7 @@ jobs:
           {
             echo "INDEX_DIGEST_amd64=${INDEX_DIGEST_amd64}"
             echo "INDEX_DIGEST_arm64=${INDEX_DIGEST_arm64}"
-          } >> "$GITHUB_ENV"
+          } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3.11.1
