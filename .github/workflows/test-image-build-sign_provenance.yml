@@ -112,16 +112,17 @@ jobs:
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
-          VERSION_ID="$(
+          IMAGE_VERSION_ID="$(
             gh api -H "Accept: application/vnd.github+json" \
               /users/${IMAGE_OWNER}/packages/container/${IMAGE_REF}/versions \
-            | jq -r ".[] | select(.name==\"${DIGEST}\") | .id" \
+            | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
             | head -n1
           )"
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
             echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
+            echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
           } >> "$GITHUB_ENV"
 
       - name: Debug print test image
@@ -139,6 +140,7 @@ jobs:
           echo "INDEX_DIGEST=${INDEX_DIGEST}"
           echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
           echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
+          echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
           echo
 
       - name: Test image
