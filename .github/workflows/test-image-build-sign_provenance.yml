@@ -10,13 +10,13 @@ permissions:
   id-token: write
 
 env:
+  UNIQUE: ${{ github.sha }}
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
   VERSION_TAG: version-${{ github.ref_name }}
   PURPOSE_TAG: latest
   DOCKERFILE: test-image-sign_provenance/Dockerfile
   BUILD_CONTEXT: test-image-sign_provenance/
-  UNIQUE: ${{ github.sha }}
 
 jobs:
 
