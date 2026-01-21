@@ -57,8 +57,6 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
       UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
-    outputs:
-      "INDEX_DIGEST_${{ matrix.arch }}": ${{ steps.save-digest.outputs.INDEX_DIGEST }}
 
     steps:
 
@@ -253,13 +251,6 @@ jobs:
         with:
           name: INDEX_DIGEST-arm64
           path: digest/INDEX_DIGEST-arm64
-
-      - name: Debug print digests
-        run: |
-          set -euo pipefail
-          find digest
-          echo "job-output INDEX_DIGEST_amd64=${{ n${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
-          echo "job-output INDEX_DIGEST_arm64=${{ n${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
 
       - name: Load digests
         run: |
