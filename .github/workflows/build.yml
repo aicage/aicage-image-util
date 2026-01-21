@@ -147,17 +147,58 @@ jobs:
       - name: Sign image with cosign
         run: |
           set -euo pipefail
-          cosign sign --yes \
-            "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
+          # buildx often returns an OCI *index* digest even for single-arch builds.
+          # Sign BOTH:
+          #   1) the index digest (what the tag resolves to)
+          #   2) the platform manifest digest (so `cosign verify IMAGE@PDIGEST` works)
+          INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
+          cosign sign --yes "${IMAGE_NAME}@${INDEX_DIGEST}"
+
+          PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r '.manifests[]
+              | select(.platform.os=="linux"
+                       and .platform.architecture=="${{ matrix.arch }}")
+              | .digest' | head -n1)"
+          test -n "${PLATFORM_DIGEST}"
+          cosign sign --yes "${IMAGE_NAME}@${PLATFORM_DIGEST}"
 
       - name: Verify image signature
         run: |
           set -euo pipefail
+          INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
           cosign verify \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity-regexp \
               "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
-            "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
+            "${IMAGE_NAME}@${INDEX_DIGEST}"
+
+          # Also verify the platform manifest digest is signed.
+          PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r '.manifests[]
+              | select(.platform.os=="linux"
+                       and .platform.architecture=="${{ matrix.arch }}")
+              | .digest' | head -n1)"
+          test -n "${PLATFORM_DIGEST}"
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp \
+              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
+            "${IMAGE_NAME}@${PLATFORM_DIGEST}"
+
+      - name: Verify provenance is present (and pinned by the signed index)
+        run: |
+          set -euo pipefail
+          INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
+          ADIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r '.manifests[]
+              | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
+              | .digest' | head -n1)"
+          test -n "${ADIGEST}"
+          # Must contain an in-toto layer declaring a SLSA provenance predicate-type.
+          docker buildx imagetools inspect --raw "${IMAGE_NAME}@${ADIGEST}" \
+            | jq -e '.layers[]?
+              | .annotations."in-toto.io/predicate-type"
+              | select(startswith("https://slsa.dev/provenance/"))'
 
       - name: Publish architecture-specific tags
         run: |
