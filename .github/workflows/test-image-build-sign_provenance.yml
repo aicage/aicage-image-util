@@ -224,7 +224,7 @@ jobs:
             --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_REF}@${INDEX_DIGEST}"
 
-# Disabled: tags for images can't be deleted
+# Disabled: tags for images can't be deleted without deleting the image
 # Error response from registry: unsupported: The operation is unsupported.
 #      - name: Install ORAS
 #        uses: oras-project/setup-oras@v1
@@ -345,10 +345,12 @@ jobs:
             --tag "${MANIFEST_PURPOSE_TAG}" \
             "${MANIFEST_TEST_TAG}"
 
-      - name: Install ORAS
-        uses: oras-project/setup-oras@v1
-
-      - name: Delete test manifest tag
-        run: |
-          set -euo pipefail
-          oras manifest delete "${MANIFEST_TEST_TAG}" --force
+# Disabled: tags can't be deleted without deleting the manifest
+# Error response from registry: unsupported: The operation is unsupported.
+#      - name: Install ORAS
+#        uses: oras-project/setup-oras@v1
+#
+#      - name: Delete test manifest tag
+#        run: |
+#          set -euo pipefail
+#          oras manifest delete "${MANIFEST_TEST_TAG}" --force
