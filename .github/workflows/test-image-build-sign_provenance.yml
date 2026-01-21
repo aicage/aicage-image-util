@@ -201,7 +201,7 @@ jobs:
       - name: Delete test image tag
         run: |
           set -euo pipefail
-          oras manifest delete "${IMAGE_TEST_TAG}"
+          oras manifest delete "${IMAGE_TEST_TAG}" --force
 
       - name: Save image digest
         run: |
@@ -316,4 +316,4 @@ jobs:
       - name: Delete test manifest tag
         run: |
           set -euo pipefail
-          oras manifest delete "${MANIFEST_TEST_TAG}"
+          oras manifest delete "${MANIFEST_TEST_TAG}" --force
