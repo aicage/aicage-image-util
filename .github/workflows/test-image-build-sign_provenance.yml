@@ -25,7 +25,7 @@ jobs:
     name: Set global vars
     runs-on: ubuntu-latest
     outputs:
-      UNIQUE: ${{ steps.output-vars.outputs.GIT_REF }}
+      UNIQUE: ${{ steps.output-vars.outputs.UNIQUE }}
     steps:
       - name: Output global vars
         id: output-vars
