@@ -10,6 +10,7 @@ permissions:
   id-token: write
 
 env:
+  GH_TOKEN: ${{ github.token }}
   IMAGE_REGISTRY: ghcr.io
   IMAGE_OWNER: ${{ github.repository_owner }}
   IMAGE_REPOSITORY: test-image-sign_provenance
@@ -101,8 +102,6 @@ jobs:
             ${{ env.IMAGE_TEST_TAG }}
 
       - name: Write image info to env
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
@@ -116,7 +115,7 @@ jobs:
               | .digest' | head -n1)"
           IMAGE_VERSION_ID="$(
             gh api -H "Accept: application/vnd.github+json" \
-              /users/${IMAGE_OWNER}/packages/container/${IMAGE_REF}/versions \
+              /users/${IMAGE_OWNER}/pkgs/container/${IMAGE_REF}/versions \
             | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
             | head -n1
           )"
