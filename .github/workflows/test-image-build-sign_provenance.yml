@@ -1,0 +1,295 @@
+name: Test Image Building With Signature and Provenance
+
+"on":
+  push:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
+
+jobs:
+
+  build:
+    name: "${{ matrix.arch }}: Build, sign, and publish image util"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      ARCH_SUFFIX: ${{ matrix.arch }}
+      DOCKERFILE: test-image-sign_provenance/Dockerfile
+      IMAGE_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}-${{ matrix.arch }}
+      IMAGE_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version-${{ matrix.arch }}
+      IMAGE_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ matrix.arch }}-test
+
+    steps:
+
+      - name: Debug print
+        run: |
+          set -euo pipefail
+          echo
+          echo "# Global env"
+          echo
+          echo "IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}"
+          echo "IMAGE_NAME=${{ env.IMAGE_NAME }}"
+          echo
+          echo "# Job env"
+          echo
+          echo "IMAGE_VERSION_TAG=${{ env.IMAGE_VERSION_TAG }}"
+          echo "IMAGE_PURPOSE_TAG=${{ env.IMAGE_PURPOSE_TAG }}"
+          echo "IMAGE_TEST_TAG=${{ env.IMAGE_TEST_TAG }}"
+          echo
+
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build test image
+        id: build_image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          push: true
+          provenance: true
+          platforms: ${{ env.PLATFORM }}
+          tags: |
+            ${{ env.IMAGE_TEST_TAG }}
+
+      - name: Read digests
+        run: |
+          set -euo pipefail
+          INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
+          
+          PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r '.manifests[]
+              | select(.platform.os=="linux" and .platform.architecture=="${{ matrix.arch }}")
+              | .digest' | head -n1)"
+          
+          ADIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r '.manifests[]
+              | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
+              | .digest' | head -n1)"
+          
+          {
+            echo "INDEX_DIGEST=${INDEX_DIGEST}"
+            echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
+            echo "ADIGEST=${ADIGEST}"
+          } >> "$GITHUB_ENV"
+
+      - name: Debug print test image
+        run: |
+          set -euo pipefail
+          echo
+          echo "# Raw build-push-action outputs"
+          echo
+          echo 'imageid=${{ steps.build_image.outputs.imageid }}'
+          echo 'digest=${{ steps.build_image.outputs.digest }}'
+          # echo 'metadata=$#{{ steps.build_image.outputs.metadata }}'
+          echo
+          echo "# ENV-var digests"
+          echo
+          echo "INDEX_DIGEST=${INDEX_DIGEST}"
+          echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
+          echo "ADIGEST=${ADIGEST}"
+          echo
+
+      - name: Test image
+        uses: addnab/docker-run-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: gcr.io
+          image: ${{ env.IMAGE_NAME }}@${{ env.INDEX_DIGEST }}
+          run: |
+            set -euo pipefail
+            echo "Read /test.txt"
+            grep -q 'test-date:' /test.txt
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Sign image with cosign
+        run: |
+          set -euo pipefail
+          # buildx often returns an OCI *index* digest even for single-arch builds.
+          # Sign BOTH:
+          #   1) the index digest (what the tag resolves to)
+          #   2) the platform manifest digest (so `cosign verify IMAGE@PDIGEST` works)
+          cosign sign --yes "${IMAGE_NAME}@${INDEX_DIGEST}"
+          test -n "${PLATFORM_DIGEST}"
+          cosign sign --yes "${IMAGE_NAME}@${PLATFORM_DIGEST}"
+
+      - name: Verify image signature
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp \
+              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
+            "${IMAGE_NAME}@${INDEX_DIGEST}"
+          
+          # Also verify the platform manifest digest is signed.
+          test -n "${PLATFORM_DIGEST}"
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp \
+              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
+            "${IMAGE_NAME}@${PLATFORM_DIGEST}"
+
+      - name: Verify provenance is present (and pinned by the signed index)
+        run: |
+          set -euo pipefail
+          
+          test -n "${ADIGEST}"
+          # Must contain an in-toto layer declaring a SLSA provenance predicate-type.
+          docker buildx imagetools inspect --raw "${IMAGE_NAME}@${ADIGEST}" \
+            | jq -e '.layers[]?
+              | .annotations."in-toto.io/predicate-type"
+              | select(startswith("https://slsa.dev/provenance/"))'
+
+      - name: Publish architecture-specific tags
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "${IMAGE_VERSION_TAG}" \
+            --tag "${IMAGE_PURPOSE_TAG}" \
+            "${IMAGE_NAME}@${INDEX_DIGEST}"
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Delete test image tag
+        run: |
+          set -euo pipefail
+          oras manifest delete "${IMAGE_TEST_TAG}"
+
+      - name: Save image digest
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${INDEX_DIGEST}" > INDEX_DIGEST-${{ matrix.arch }}.txt
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: INDEX_DIGEST-${{ matrix.arch }}
+          path: INDEX_DIGEST-${{ matrix.arch }}.txt
+          retention-days: 1
+
+  manifest:
+    name: Publish multi-arch manifest
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      MANIFEST_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}
+      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version
+      MANIFEST_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Download amd64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: INDEX_DIGEST-amd64
+          path: digest/INDEX_DIGEST-amd64
+
+      - name: Download arm64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: INDEX_DIGEST-arm64
+          path: digest/INDEX_DIGEST-arm64
+
+      - name: Debug print digests
+        run: |
+          set -euo pipefail
+          find digest
+
+      - name: Load digests
+        run: |
+          set -euo pipefail
+          INDEX_DIGEST_amd64="$(cat digest/INDEX_DIGEST-amd64/INDEX_DIGEST-amd64.txt)"
+          INDEX_DIGEST_arm64="$(cat digest/INDEX_DIGEST-arm64/INDEX_DIGEST-arm64.txt)"
+          {
+            echo "INDEX_DIGEST_amd64=${INDEX_DIGEST_amd64}"
+            echo "INDEX_DIGEST_arm64=${INDEX_DIGEST_arm64}"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish test multi-arch manifest
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "${MANIFEST_TEST_TAG}" \
+            "${INDEX_DIGEST_amd64}" \
+            "${INDEX_DIGEST_arm64}"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Sign multi-arch manifest
+        run: |
+          set -euo pipefail
+          cosign sign --yes \
+            "${MANIFEST_TEST_TAG}"
+
+      - name: Verify multi-arch manifest signature
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp \
+              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
+            "${MANIFEST_TEST_TAG}"
+
+      - name: Publish final multi-arch manifest tags
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "${MANIFEST_VERSION_TAG}" \
+            --tag "${MANIFEST_PURPOSE_TAG}" \
+            "${MANIFEST_TEST_TAG}"
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Delete test manifest tag
+        run: |
+          set -euo pipefail
+          oras manifest delete "${MANIFEST_TEST_TAG}"
