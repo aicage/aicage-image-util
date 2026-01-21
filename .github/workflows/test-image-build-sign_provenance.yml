@@ -47,6 +47,7 @@ jobs:
           IMAGE_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}-${{ matrix.arch }}"
           IMAGE_TEST_TAG="${IMAGE_REF}:${UNIQUE}-${{ matrix.arch }}-test"
           {
+            echo "IMAGE_REF=${IMAGE_REF}"
             echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
             echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
             echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
@@ -237,6 +238,7 @@ jobs:
           MANIFEST_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}"
           MANIFEST_TEST_TAG="${IMAGE_REF}:${UNIQUE}-test"
           {
+            echo "IMAGE_REF=${IMAGE_REF}"
             echo "MANIFEST_VERSION_TAG=${MANIFEST_VERSION_TAG}"
             echo "MANIFEST_PURPOSE_TAG=${MANIFEST_PURPOSE_TAG}"
             echo "MANIFEST_TEST_TAG=${MANIFEST_TEST_TAG}"
