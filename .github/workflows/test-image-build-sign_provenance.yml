@@ -12,7 +12,7 @@ permissions:
 env:
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
-  VERSION_TAG: version-${{ github.ref_name }}
+  VERSION_TAG: version-${{ github.sha }}
   PURPOSE_TAG: latest
   DOCKERFILE: test-image-sign_provenance/Dockerfile
   BUILD_CONTEXT: test-image-sign_provenance/
@@ -58,6 +58,11 @@ jobs:
           echo
           echo "IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}"
           echo "IMAGE_NAME=${{ env.IMAGE_NAME }}"
+          echo "VERSION_TAG=${{ env.VERSION_TAG }}"
+          echo "PURPOSE_TAG=${{ env.PURPOSE_TAG }}"
+          echo "DOCKERFILE=${{ env.DOCKERFILE }}"
+          echo "BUILD_CONTEXT=${{ env.BUILD_CONTEXT }}"
+          echo "UNIQUE=${{ env.UNIQUE }}"
           echo
           echo "# Job env"
           echo
