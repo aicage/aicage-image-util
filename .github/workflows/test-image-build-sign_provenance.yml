@@ -33,6 +33,7 @@ jobs:
       DOCKERFILE: test-image-sign_provenance/Dockerfile
       IMAGE_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}-${{ matrix.arch }}
       IMAGE_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version-${{ matrix.arch }}
+      IMAGE_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ matrix.arch }}-test
 
     steps:
 
@@ -49,6 +50,7 @@ jobs:
           echo
           echo "IMAGE_VERSION_TAG=${{ env.IMAGE_VERSION_TAG }}"
           echo "IMAGE_PURPOSE_TAG=${{ env.IMAGE_PURPOSE_TAG }}"
+          echo "IMAGE_TEST_TAG=${{ env.IMAGE_TEST_TAG }}"
           echo
 
       - name: Checkout
@@ -75,6 +77,8 @@ jobs:
           push: true
           provenance: true
           platforms: ${{ env.PLATFORM }}
+          tags: |
+            ${{ env.IMAGE_TEST_TAG }}
 
       - name: Read digests
         run: |
@@ -175,6 +179,14 @@ jobs:
             --tag "${IMAGE_VERSION_TAG}" \
             --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_NAME}@${INDEX_DIGEST}"
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Delete test image tag
+        run: |
+          set -euo pipefail
+          oras manifest delete "${IMAGE_TEST_TAG}"
 
       - name: Save image digest
         run: |
