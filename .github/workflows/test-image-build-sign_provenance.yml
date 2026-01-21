@@ -47,9 +47,9 @@ jobs:
           - arch: amd64
             platform: linux/amd64
             runner: ubuntu-latest
-#          - arch: arm64
-#            platform: linux/arm64
-#            runner: ubuntu-24.04-arm
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     env:
       ARCH_SUFFIX: ${{ matrix.arch }}
       PLATFORM: ${{ matrix.platform }}
@@ -173,7 +173,6 @@ jobs:
             set -euo pipefail
             echo "Read /test.txt"
             grep -q 'test-date:' /test.txt
-            exit 1
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.0.0
