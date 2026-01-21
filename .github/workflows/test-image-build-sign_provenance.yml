@@ -11,7 +11,8 @@ permissions:
 
 env:
   IMAGE_REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
+  IMAGE_OWNER: ${{ github.repository_owner }}
+  IMAGE_REPOSITORY: test-image-sign_provenance
   VERSION_TAG: version-${{ github.sha }}
   PURPOSE_TAG: latest
   DOCKERFILE: test-image-sign_provenance/Dockerfile
@@ -41,9 +42,10 @@ jobs:
       - name: Write image tags to env
         run: |
           set -euo pipefail
-          IMAGE_VERSION_TAG="${IMAGE_NAME}:${VERSION_TAG}-${{ env.UNIQUE }}-${{ matrix.arch }}"
-          IMAGE_PURPOSE_TAG="${IMAGE_NAME}:${PURPOSE_TAG}-${{ matrix.arch }}"
-          IMAGE_TEST_TAG="${IMAGE_NAME}:${{ env.UNIQUE }}-${{ matrix.arch }}-test"
+          IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
+          IMAGE_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${UNIQUE}-${{ matrix.arch }}"
+          IMAGE_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}-${{ matrix.arch }}"
+          IMAGE_TEST_TAG="${IMAGE_REF}:${UNIQUE}-${{ matrix.arch }}-test"
           {
             echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
             echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
@@ -56,19 +58,18 @@ jobs:
           echo
           echo "# Global env"
           echo
-          echo "IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}"
-          echo "IMAGE_NAME=${{ env.IMAGE_NAME }}"
-          echo "VERSION_TAG=${{ env.VERSION_TAG }}"
-          echo "PURPOSE_TAG=${{ env.PURPOSE_TAG }}"
-          echo "DOCKERFILE=${{ env.DOCKERFILE }}"
-          echo "BUILD_CONTEXT=${{ env.BUILD_CONTEXT }}"
-          echo "UNIQUE=${{ env.UNIQUE }}"
+          echo "IMAGE_REGISTRY=${IMAGE_REGISTRY}"
+          echo "VERSION_TAG=${VERSION_TAG}"
+          echo "PURPOSE_TAG=${PURPOSE_TAG}"
+          echo "DOCKERFILE=${DOCKERFILE}"
+          echo "BUILD_CONTEXT=${BUILD_CONTEXT}"
+          echo "UNIQUE=${UNIQUE}"
           echo
           echo "# Job env"
           echo
-          echo "IMAGE_VERSION_TAG=${{ env.IMAGE_VERSION_TAG }}"
-          echo "IMAGE_PURPOSE_TAG=${{ env.IMAGE_PURPOSE_TAG }}"
-          echo "IMAGE_TEST_TAG=${{ env.IMAGE_TEST_TAG }}"
+          echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
+          echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
+          echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
           echo
 
       - name: Checkout
@@ -98,22 +99,28 @@ jobs:
           tags: |
             ${{ env.IMAGE_TEST_TAG }}
 
-      - name: Write digests to env
+      - name: Write image info to env
         run: |
           set -euo pipefail
           INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
-          PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+          PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_REF}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.platform.os=="linux" and .platform.architecture=="${{ matrix.arch }}")
               | .digest' | head -n1)"
-          ADIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+          ATTESTATION_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_REF}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
+          VERSION_ID="$(
+            gh api -H "Accept: application/vnd.github+json" \
+              /users/${IMAGE_OWNER}/packages/container/${IMAGE_REF}/versions \
+            | jq -r ".[] | select(.name==\"${DIGEST}\") | .id" \
+            | head -n1
+          )"
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
-            echo "ADIGEST=${ADIGEST}"
+            echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
           } >> "$GITHUB_ENV"
 
       - name: Debug print test image
@@ -130,7 +137,7 @@ jobs:
           echo
           echo "INDEX_DIGEST=${INDEX_DIGEST}"
           echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
-          echo "ADIGEST=${ADIGEST}"
+          echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
           echo
 
       - name: Test image
@@ -139,7 +146,7 @@ jobs:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          image: ${{ env.IMAGE_NAME }}@${{ env.INDEX_DIGEST }}
+          image: ${{ env.IMAGE_REF }}@${{ env.INDEX_DIGEST }}
           run: |
             set -euo pipefail
             echo "Read /test.txt"
@@ -156,9 +163,9 @@ jobs:
           #   1) the index digest (what the tag resolves to)
           #   2) the platform manifest digest (so `cosign verify IMAGE@PDIGEST` works)
           test -n "${INDEX_DIGEST}"
-          cosign sign --yes "${IMAGE_NAME}@${INDEX_DIGEST}"
+          cosign sign --yes "${IMAGE_REF}@${INDEX_DIGEST}"
           test -n "${PLATFORM_DIGEST}"
-          cosign sign --yes "${IMAGE_NAME}@${PLATFORM_DIGEST}"
+          cosign sign --yes "${IMAGE_REF}@${PLATFORM_DIGEST}"
 
       - name: Verify image signature
         run: |
@@ -167,7 +174,7 @@ jobs:
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity-regexp \
               "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
-            "${IMAGE_NAME}@${INDEX_DIGEST}"
+            "${IMAGE_REF}@${INDEX_DIGEST}"
 
           # Also verify the platform manifest digest is signed.
           test -n "${PLATFORM_DIGEST}"
@@ -175,14 +182,14 @@ jobs:
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity-regexp \
               "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
-            "${IMAGE_NAME}@${PLATFORM_DIGEST}"
+            "${IMAGE_REF}@${PLATFORM_DIGEST}"
 
       - name: Verify provenance is present (and pinned by the signed index)
         run: |
           set -euo pipefail
-          test -n "${ADIGEST}"
+          test -n "${ATTESTATION_DIGEST}"
           # Must contain an in-toto layer declaring a SLSA provenance predicate-type.
-          docker buildx imagetools inspect --raw "${IMAGE_NAME}@${ADIGEST}" \
+          docker buildx imagetools inspect --raw "${IMAGE_REF}@${ATTESTATION_DIGEST}" \
             | jq -e '.layers[]?
               | .annotations."in-toto.io/predicate-type"
               | select(startswith("https://slsa.dev/provenance/"))'
@@ -193,7 +200,7 @@ jobs:
           docker buildx imagetools create \
             --tag "${IMAGE_VERSION_TAG}" \
             --tag "${IMAGE_PURPOSE_TAG}" \
-            "${IMAGE_NAME}@${INDEX_DIGEST}"
+            "${IMAGE_REF}@${INDEX_DIGEST}"
 
       - name: Install ORAS
         uses: oras-project/setup-oras@v1
@@ -225,9 +232,10 @@ jobs:
       - name: Write manifest tags to env
         run: |
           set -euo pipefail
-          MANIFEST_VERSION_TAG="${IMAGE_NAME}:${VERSION_TAG}-${{ env.UNIQUE }}"
-          MANIFEST_PURPOSE_TAG="${IMAGE_NAME}:${PURPOSE_TAG}"
-          MANIFEST_TEST_TAG="${IMAGE_NAME}:${{ env.UNIQUE }}-test"
+          IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
+          MANIFEST_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${UNIQUE}"
+          MANIFEST_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}"
+          MANIFEST_TEST_TAG="${IMAGE_REF}:${UNIQUE}-test"
           {
             echo "MANIFEST_VERSION_TAG=${MANIFEST_VERSION_TAG}"
             echo "MANIFEST_PURPOSE_TAG=${MANIFEST_PURPOSE_TAG}"
