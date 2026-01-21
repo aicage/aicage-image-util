@@ -1,4 +1,4 @@
-name: Test Image Building With Signature and Provenance
+name: Debug Image Building With Signature and Provenance
 
 "on":
   push:
