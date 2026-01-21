@@ -130,24 +130,18 @@ jobs:
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
-
-          echo "IMAGE_OWNER=${IMAGE_OWNER}"
-          echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}"
-          echo "ENDPOINT=/orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions"
           
-          gh api -i "/orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions" | head -n 40
-          
-          IMAGE_VERSION_ID="$(
-            gh api -H "Accept: application/vnd.github+json" \
-              /orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions \
-            | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
-            | head -n1
-          )"
+          # IMAGE_VERSION_ID="$(
+          #   gh api -H "Accept: application/vnd.github+json" \
+          #     /orgs/${IMAGE_OWNER}/packages/container/${IMAGE_REPOSITORY}/versions \
+          #   | jq -r ".[] | select(.name==\"${INDEX_DIGEST#sha256:}\") | .id" \
+          #   | head -n1
+          # )"
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
             echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
-            echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
+            # echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
           } >> "$GITHUB_ENV"
 
       - name: Debug print test image
@@ -165,7 +159,7 @@ jobs:
           echo "INDEX_DIGEST=${INDEX_DIGEST}"
           echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
           echo "ATTESTATION_DIGEST=${ATTESTATION_DIGEST}"
-          echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
+          # echo "IMAGE_VERSION_ID=${IMAGE_VERSION_ID}"
           echo
 
       - name: Test image
@@ -230,13 +224,15 @@ jobs:
             --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_REF}@${INDEX_DIGEST}"
 
-      - name: Install ORAS
-        uses: oras-project/setup-oras@v1
-
-      - name: Delete test image tag
-        run: |
-          set -euo pipefail
-          oras manifest delete "${IMAGE_TEST_TAG}" --force
+# Disabled: tags for images can't be deleted
+# Error response from registry: unsupported: The operation is unsupported.
+#      - name: Install ORAS
+#        uses: oras-project/setup-oras@v1
+#
+#      - name: Delete test image tag
+#        run: |
+#          set -euo pipefail
+#          oras manifest delete "${IMAGE_TEST_TAG}" --force
 
       - name: Save image digest
         run: |
