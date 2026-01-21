@@ -101,6 +101,8 @@ jobs:
             ${{ env.IMAGE_TEST_TAG }}
 
       - name: Write image info to env
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
