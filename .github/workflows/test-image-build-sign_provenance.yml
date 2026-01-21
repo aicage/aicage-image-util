@@ -12,6 +12,11 @@ permissions:
 env:
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
+  VERSION_TAG: version-${{ github.ref_name }}
+  PURPOSE_TAG: latest
+  DOCKERFILE: test-image-sign_provenance/Dockerfile
+  BUILD_CONTEXT: test-image-sign_provenance/
+  UNIQUE: ${{ github.sha }}
 
 jobs:
 
@@ -30,12 +35,21 @@ jobs:
     env:
       PLATFORM: ${{ matrix.platform }}
       ARCH_SUFFIX: ${{ matrix.arch }}
-      DOCKERFILE: test-image-sign_provenance/Dockerfile
-      IMAGE_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}-${{ matrix.arch }}
-      IMAGE_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version-${{ matrix.arch }}
-      IMAGE_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ matrix.arch }}-test
 
     steps:
+
+      - name: Write image tags to env
+        run: |
+          set -euo pipefail
+          IMAGE_VERSION_TAG="${IMAGE_NAME}:${VERSION_TAG}-${{ env.UNIQUE }}-${{ matrix.arch }}"
+          IMAGE_PURPOSE_TAG="${IMAGE_NAME}:${PURPOSE_TAG}-${{ matrix.arch }}"
+          IMAGE_TEST_TAG="${IMAGE_NAME}:${{ env.UNIQUE }}-${{ matrix.arch }}-test"
+
+          {
+            echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
+            echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
+            echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
+          } >> "$GITHUB_ENV"
 
       - name: Debug print
         run: |
@@ -72,7 +86,7 @@ jobs:
         id: build_image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ env.BUILD_CONTEXT }}
           file: ${{ env.DOCKERFILE }}
           push: true
           provenance: true
@@ -80,21 +94,21 @@ jobs:
           tags: |
             ${{ env.IMAGE_TEST_TAG }}
 
-      - name: Read digests
+      - name: Write digests to env
         run: |
           set -euo pipefail
           INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
-          
+
           PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.platform.os=="linux" and .platform.architecture=="${{ matrix.arch }}")
               | .digest' | head -n1)"
-          
+
           ADIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
-          
+
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
@@ -121,9 +135,9 @@ jobs:
       - name: Test image
         uses: addnab/docker-run-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          registry: gcr.io
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ env.IMAGE_NAME }}@${{ env.INDEX_DIGEST }}
           run: |
             set -euo pipefail
@@ -140,6 +154,7 @@ jobs:
           # Sign BOTH:
           #   1) the index digest (what the tag resolves to)
           #   2) the platform manifest digest (so `cosign verify IMAGE@PDIGEST` works)
+          test -n "${INDEX_DIGEST}"
           cosign sign --yes "${IMAGE_NAME}@${INDEX_DIGEST}"
           test -n "${PLATFORM_DIGEST}"
           cosign sign --yes "${IMAGE_NAME}@${PLATFORM_DIGEST}"
@@ -152,7 +167,7 @@ jobs:
             --certificate-identity-regexp \
               "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
             "${IMAGE_NAME}@${INDEX_DIGEST}"
-          
+
           # Also verify the platform manifest digest is signed.
           test -n "${PLATFORM_DIGEST}"
           cosign verify \
@@ -164,7 +179,6 @@ jobs:
       - name: Verify provenance is present (and pinned by the signed index)
         run: |
           set -euo pipefail
-          
           test -n "${ADIGEST}"
           # Must contain an in-toto layer declaring a SLSA provenance predicate-type.
           docker buildx imagetools inspect --raw "${IMAGE_NAME}@${ADIGEST}" \
@@ -205,11 +219,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     env:
-      MANIFEST_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}
+      MANIFEST_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ env.UNIQUE }}
       MANIFEST_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version
-      MANIFEST_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ github.sha }}-test
+      MANIFEST_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ env.UNIQUE }}-test
 
     steps:
+
+      - name: Write manifest tags to env
+        run: |
+          set -euo pipefail
+          MANIFEST_VERSION_TAG="${IMAGE_NAME}:${VERSION_TAG}-${{ env.UNIQUE }}"
+          MANIFEST_PURPOSE_TAG="${IMAGE_NAME}:${PURPOSE_TAG}"
+          MANIFEST_TEST_TAG="${IMAGE_NAME}:${{ env.UNIQUE }}-test"
+          {
+            echo "MANIFEST_VERSION_TAG=${MANIFEST_VERSION_TAG}"
+            echo "MANIFEST_PURPOSE_TAG=${MANIFEST_PURPOSE_TAG}"
+            echo "MANIFEST_TEST_TAG=${MANIFEST_TEST_TAG}"
+          } >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v6.0.1
 
