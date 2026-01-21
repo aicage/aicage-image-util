@@ -18,13 +18,29 @@ env:
   PURPOSE_TAG: latest
   DOCKERFILE: test-image-sign_provenance/Dockerfile
   BUILD_CONTEXT: test-image-sign_provenance/
-  UNIQUE: ${{ github.sha }}
 
 jobs:
+
+  set-globals:
+    name: Set global vars
+    runs-on: ubuntu-latest
+    outputs:
+      UNIQUE: ${{ steps.output-vars.outputs.GIT_REF }}
+    steps:
+      - name: Output global vars
+        id: output-vars
+        run: |
+          set -euo pipefail
+          UNIQUE="${{ github.sha }}-$(uuidgen)"
+          {
+            echo "UNIQUE=${UNIQUE}"
+          } >> "$GITHUB_OUTPUT"
+          echo "UNIQUE: ${UNIQUE}" >&2
 
   build:
     name: "${{ matrix.arch }}: Build, sign, and publish image util"
     runs-on: ${{ matrix.runner }}
+    needs: set-globals
     strategy:
       matrix:
         include:
@@ -35,8 +51,9 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
     env:
-      PLATFORM: ${{ matrix.platform }}
       ARCH_SUFFIX: ${{ matrix.arch }}
+      PLATFORM: ${{ matrix.platform }}
+      UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
 
     steps:
 
@@ -44,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
-          IMAGE_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${UNIQUE}-${{ matrix.arch }}"
+          IMAGE_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${{ matrix.arch }}"
           IMAGE_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}-${{ matrix.arch }}"
           IMAGE_TEST_TAG="${IMAGE_REF}:${UNIQUE}-${{ matrix.arch }}-test"
           {
@@ -236,7 +253,9 @@ jobs:
   manifest:
     name: Publish multi-arch manifest
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [set-globals, build]
+    env:
+      UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
 
     steps:
 
@@ -244,7 +263,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
-          MANIFEST_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${UNIQUE}"
+          MANIFEST_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}"
           MANIFEST_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}"
           MANIFEST_TEST_TAG="${IMAGE_REF}:${UNIQUE}-test"
           {
