@@ -58,7 +58,7 @@ jobs:
       IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
       UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
     outputs:
-      INDEX_DIGEST_${{ matrix.arch }}: ${{ steps.save-digest.outputs.INDEX_DIGEST }}
+      "INDEX_DIGEST_${{ matrix.arch }}": ${{ steps.save-digest.outputs.INDEX_DIGEST }}
 
     steps:
 
