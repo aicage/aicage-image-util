@@ -10,13 +10,13 @@ permissions:
   id-token: write
 
 env:
-  UNIQUE: ${{ github.sha }}
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/aicage/test-image-sign_provenance
   VERSION_TAG: version-${{ github.ref_name }}
   PURPOSE_TAG: latest
   DOCKERFILE: test-image-sign_provenance/Dockerfile
   BUILD_CONTEXT: test-image-sign_provenance/
+  UNIQUE: ${{ github.sha }}
 
 jobs:
 
@@ -44,7 +44,6 @@ jobs:
           IMAGE_VERSION_TAG="${IMAGE_NAME}:${VERSION_TAG}-${{ env.UNIQUE }}-${{ matrix.arch }}"
           IMAGE_PURPOSE_TAG="${IMAGE_NAME}:${PURPOSE_TAG}-${{ matrix.arch }}"
           IMAGE_TEST_TAG="${IMAGE_NAME}:${{ env.UNIQUE }}-${{ matrix.arch }}-test"
-
           {
             echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
             echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
@@ -98,17 +97,14 @@ jobs:
         run: |
           set -euo pipefail
           INDEX_DIGEST="${{ steps.build_image.outputs.digest }}"
-
           PLATFORM_DIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.platform.os=="linux" and .platform.architecture=="${{ matrix.arch }}")
               | .digest' | head -n1)"
-
           ADIGEST="$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
             | jq -r '.manifests[]
               | select(.annotations."vnd.docker.reference.type"=="attestation-manifest")
               | .digest' | head -n1)"
-
           {
             echo "INDEX_DIGEST=${INDEX_DIGEST}"
             echo "PLATFORM_DIGEST=${PLATFORM_DIGEST}"
@@ -218,10 +214,6 @@ jobs:
     name: Publish multi-arch manifest
     runs-on: ubuntu-latest
     needs: [build]
-    env:
-      MANIFEST_VERSION_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ env.UNIQUE }}
-      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/test-image-sign_provenance:agent-version
-      MANIFEST_TEST_TAG: ghcr.io/aicage/test-image-sign_provenance:${{ env.UNIQUE }}-test
 
     steps:
 
