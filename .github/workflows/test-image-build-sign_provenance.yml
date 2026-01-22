@@ -266,8 +266,8 @@ jobs:
         run: |
           set -euo pipefail
           find digest
-          echo "job-output INDEX_DIGEST_amd64=${{ n${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
-          echo "job-output INDEX_DIGEST_arm64=${{ n${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
+          echo "job-output INDEX_DIGEST_amd64=${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
+          echo "job-output INDEX_DIGEST_arm64=${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
 
       - name: Load digests
         run: |
