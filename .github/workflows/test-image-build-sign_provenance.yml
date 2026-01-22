@@ -209,15 +209,15 @@ jobs:
 
   slsa_provenance:
     name: "${{ matrix.arch }}: SLSA provenance"
-    needs: [set-globals, build]
+    needs: [build]
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     strategy:
       matrix:
         include:
           - arch: amd64
-            INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_amd64 }}
+            INDEX_DIGEST: ${{ needs.build.outputs.INDEX_DIGEST_amd64 }}
           - arch: arm64
-            INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_arm64 }}
+            INDEX_DIGEST: ${{ needs.build.outputs.INDEX_DIGEST_arm64 }}
     with:
       image: ghcr.io/${{ github.repository_owner }}/aicage-image-util
       digest: ${{ matrix.INDEX_DIGEST }}
@@ -232,6 +232,8 @@ jobs:
     env:
       IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
       UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
+      INDEX_DIGEST_amd64: ${{ needs.build.outputs.INDEX_DIGEST_amd64 }}
+      INDEX_DIGEST_arm64: ${{ needs.build.outputs.INDEX_DIGEST_arm64 }}
 
     steps:
 
@@ -268,6 +270,8 @@ jobs:
           find digest
           echo "job-output INDEX_DIGEST_amd64=${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
           echo "job-output INDEX_DIGEST_arm64=${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
+          echo "env INDEX_DIGEST_amd64=${INDEX_DIGEST_amd64}"
+          echo "env INDEX_DIGEST_arm64=${INDEX_DIGEST_arm64}"
 
       - name: Load digests
         run: |
