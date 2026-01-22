@@ -57,6 +57,9 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
       UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
+    outputs:
+      INDEX_DIGEST_amd64: ${{ steps.out-amd64.outputs.INDEX_DIGEST }}
+      INDEX_DIGEST_arm64: ${{ steps.out-arm64.outputs.INDEX_DIGEST }}
 
     steps:
 
@@ -185,9 +188,6 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s\n' "${INDEX_DIGEST}" > INDEX_DIGEST-${{ matrix.arch }}.txt
-          {
-            echo "INDEX_DIGEST=${INDEX_DIGEST_$}"
-          } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
       - name: Upload image digest
         uses: actions/upload-artifact@v4
@@ -195,6 +195,16 @@ jobs:
           name: INDEX_DIGEST-${{ matrix.arch }}
           path: INDEX_DIGEST-${{ matrix.arch }}.txt
           retention-days: 1
+
+      - name: Export digest (amd64)
+        id: out-amd64
+        if: matrix.arch == 'amd64'
+        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Export digest (arm64)
+        id: out-arm64
+        if: matrix.arch == 'arm64'
+        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
 
 #  slsa_provenance:
 #    name: "${{ matrix.arch }}: SLSA provenance"
@@ -251,6 +261,13 @@ jobs:
         with:
           name: INDEX_DIGEST-arm64
           path: digest/INDEX_DIGEST-arm64
+
+      - name: Debug print digests
+        run: |
+          set -euo pipefail
+          find digest
+          echo "job-output INDEX_DIGEST_amd64=${{ n${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
+          echo "job-output INDEX_DIGEST_arm64=${{ n${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
 
       - name: Load digests
         run: |
