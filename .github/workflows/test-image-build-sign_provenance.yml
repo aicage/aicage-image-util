@@ -131,7 +131,8 @@ jobs:
           image: ${{ env.IMAGE_REF }}@${{ env.INDEX_DIGEST }}
           run: |
             set -euo pipefail
-            echo "Read /test.txt"
+            echo "Debug: cat /test.txt"
+            cat /test.txt
             grep -q 'test-date:' /test.txt
 
       - name: Install Cosign
@@ -194,19 +195,6 @@ jobs:
             --tag "${IMAGE_PURPOSE_TAG}" \
             "${IMAGE_REF}@${INDEX_DIGEST}"
 
-      - name: Save image digest
-        id: save-digest
-        run: |
-          set -euo pipefail
-          printf '%s\n' "${INDEX_DIGEST}" > INDEX_DIGEST-${{ matrix.arch }}.txt
-
-      - name: Upload image digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: INDEX_DIGEST-${{ matrix.arch }}
-          path: INDEX_DIGEST-${{ matrix.arch }}.txt
-          retention-days: 1
-
   slsa_provenance:
     name: "${{ matrix.arch }}: SLSA provenance"
     needs: [build]
@@ -251,37 +239,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v6.0.1
-
-      - name: Download amd64 digest
-        uses: actions/download-artifact@v4
-        with:
-          name: INDEX_DIGEST-amd64
-          path: digest/INDEX_DIGEST-amd64
-
-      - name: Download arm64 digest
-        uses: actions/download-artifact@v4
-        with:
-          name: INDEX_DIGEST-arm64
-          path: digest/INDEX_DIGEST-arm64
-
-      - name: Debug print digests
-        run: |
-          set -euo pipefail
-          find digest
-          echo "job-output INDEX_DIGEST_amd64=${{ needs.build.outputs.INDEX_DIGEST_amd64 }}"
-          echo "job-output INDEX_DIGEST_arm64=${{ needs.build.outputs.INDEX_DIGEST_arm64 }}"
-          echo "env INDEX_DIGEST_amd64=${INDEX_DIGEST_amd64}"
-          echo "env INDEX_DIGEST_arm64=${INDEX_DIGEST_arm64}"
-
-      - name: Load digests
-        run: |
-          set -euo pipefail
-          INDEX_DIGEST_amd64="$(cat digest/INDEX_DIGEST-amd64/INDEX_DIGEST-amd64.txt)"
-          INDEX_DIGEST_arm64="$(cat digest/INDEX_DIGEST-arm64/INDEX_DIGEST-arm64.txt)"
-          {
-            echo "INDEX_DIGEST_amd64=${INDEX_DIGEST_amd64}"
-            echo "INDEX_DIGEST_arm64=${INDEX_DIGEST_arm64}"
-          } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3.11.1
