@@ -33,11 +33,9 @@ jobs:
         id: output-vars
         run: |
           set -euo pipefail
-          IMAGE_REF="${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
-          UNIQUE="${{ github.sha }}-$(uuidgen)"
           {
-            echo "IMAGE_REF=${IMAGE_REF}"
-            echo "UNIQUE=${UNIQUE}"
+            echo "IMAGE_REF=${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_REPOSITORY}"
+            echo "UNIQUE=${{ github.sha }}-$(uuidgen)"
           } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
   build:
@@ -67,13 +65,10 @@ jobs:
       - name: Write image tags to env
         run: |
           set -euo pipefail
-          IMAGE_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}-${{ matrix.arch }}"
-          IMAGE_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}-${{ matrix.arch }}"
-          IMAGE_TEST_TAG="${IMAGE_REF}:${UNIQUE}-${{ matrix.arch }}-test"
           {
-            echo "IMAGE_VERSION_TAG=${IMAGE_VERSION_TAG}"
-            echo "IMAGE_PURPOSE_TAG=${IMAGE_PURPOSE_TAG}"
-            echo "IMAGE_TEST_TAG=${IMAGE_TEST_TAG}"
+            echo "IMAGE_VERSION_TAG=${IMAGE_REF}:${VERSION_TAG}-${{ matrix.arch }}"
+            echo "IMAGE_PURPOSE_TAG=${IMAGE_REF}:${PURPOSE_TAG}-${{ matrix.arch }}"
+            echo "IMAGE_TEST_TAG=${IMAGE_REF}:${UNIQUE}-${{ matrix.arch }}-test"
           } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Checkout
@@ -228,13 +223,10 @@ jobs:
       - name: Write manifest tags to env
         run: |
           set -euo pipefail
-          MANIFEST_VERSION_TAG="${IMAGE_REF}:${VERSION_TAG}"
-          MANIFEST_PURPOSE_TAG="${IMAGE_REF}:${PURPOSE_TAG}"
-          MANIFEST_TEST_TAG="${IMAGE_REF}:${UNIQUE}-test"
           {
-            echo "MANIFEST_VERSION_TAG=${MANIFEST_VERSION_TAG}"
-            echo "MANIFEST_PURPOSE_TAG=${MANIFEST_PURPOSE_TAG}"
-            echo "MANIFEST_TEST_TAG=${MANIFEST_TEST_TAG}"
+            echo "MANIFEST_VERSION_TAG=${IMAGE_REF}:${VERSION_TAG}"
+            echo "MANIFEST_PURPOSE_TAG=${IMAGE_REF}:${PURPOSE_TAG}"
+            echo "MANIFEST_TEST_TAG=${IMAGE_REF}:${UNIQUE}-test"
           } | tee /dev/stderr >> "$GITHUB_ENV"
 
       - name: Checkout
