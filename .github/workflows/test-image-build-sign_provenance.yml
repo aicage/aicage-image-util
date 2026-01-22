@@ -8,6 +8,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  actions: read
 
 env:
   GH_TOKEN: ${{ github.token }}
@@ -210,8 +211,6 @@ jobs:
     name: "${{ matrix.arch }}: SLSA provenance"
     needs: [set-globals, build]
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
-    permissions:
-      actions: read
     strategy:
       matrix:
         include:
