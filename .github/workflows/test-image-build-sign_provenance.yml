@@ -175,6 +175,16 @@ jobs:
               | .annotations."in-toto.io/predicate-type"
               | select(startswith("https://slsa.dev/provenance/"))'
 
+      - name: Export digest (amd64)
+        id: out-amd64
+        if: matrix.arch == 'amd64'
+        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Export digest (arm64)
+        id: out-arm64
+        if: matrix.arch == 'arm64'
+        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
+
       - name: Publish architecture-specific tags
         run: |
           set -euo pipefail
@@ -196,34 +206,23 @@ jobs:
           path: INDEX_DIGEST-${{ matrix.arch }}.txt
           retention-days: 1
 
-      - name: Export digest (amd64)
-        id: out-amd64
-        if: matrix.arch == 'amd64'
-        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
-
-      - name: Export digest (arm64)
-        id: out-arm64
-        if: matrix.arch == 'arm64'
-        run: echo "INDEX_DIGEST=${INDEX_DIGEST}" >> "$GITHUB_OUTPUT"
-
-#  slsa_provenance:
-#    name: "${{ matrix.arch }}: SLSA provenance"
-#    needs: [set-global, build]
-#    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
-#    strategy:
-#      matrix:
-#        include:
-#          - arch: amd64
-#          - arch: arm64
-#    env:
-#      IMAGE_REF: ${{ needs.set-globals.outputs.IMAGE_REF }}
-#      UNIQUE: ${{ needs.set-globals.outputs.UNIQUE }}
-#    with:
-#      image: ghcr.io/${{ github.repository_owner }}/aicage-image-util
-#      digest: ${{ needs.build.outputs.digest_amd64 }}
-#      registry-username: ${{ github.actor }}
-#    secrets:
-#      registry-password: ${{ secrets.GITHUB_TOKEN }}
+  slsa_provenance:
+    name: "${{ matrix.arch }}: SLSA provenance"
+    needs: [set-global, build]
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+          - arch: arm64
+    env:
+      INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_${{ matrix.arch }} }}
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/aicage-image-util
+      digest: ${{ env.INDEX_DIGEST }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   manifest:
     name: Publish multi-arch manifest
