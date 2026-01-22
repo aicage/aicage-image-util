@@ -214,12 +214,12 @@ jobs:
       matrix:
         include:
           - arch: amd64
+            INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_amd64 }}
           - arch: arm64
-    env:
-      INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_${{ matrix.arch }} }}
+            INDEX_DIGEST: ${{ needs.set-globals.outputs.INDEX_DIGEST_arm64 }}
     with:
       image: ghcr.io/${{ github.repository_owner }}/aicage-image-util
-      digest: ${{ env.INDEX_DIGEST }}
+      digest: ${{ matrix.INDEX_DIGEST }}
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
