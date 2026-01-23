@@ -82,7 +82,7 @@ jobs:
           pymarkdown --config .pymarkdown.json scan --recurse --exclude './.venv/' .
 
   build:
-    name: "${{ matrix.arch }}: Build, sign, and publish image util"
+    name: "${{ matrix.arch }}: Build and test image"
     runs-on: ${{ matrix.runner }}
     needs: [resolve-ref, lint]
     strategy:
