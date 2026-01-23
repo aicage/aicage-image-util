@@ -39,7 +39,7 @@ jobs:
               exit 1
             fi
           else
-            GIT_REF="${GITHUB_SHA::7}"
+            GIT_REF="${GITHUB_REF_NAME}"
           fi
           {
             echo "GIT_REF=${GIT_REF}"
@@ -94,7 +94,7 @@ jobs:
       ARCH_SUFFIX: ${{ matrix.arch }}
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
       IMAGE_NAME: ghcr.io/aicage/aicage-image-util
-      IMAGE_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}-test
+      IMAGE_TEST_TAG: ghcr.io/aicage/aicage-image-util:${GITHUB_SHA::7}-${{ matrix.arch }}-test
     outputs:
       INDEX_DIGEST_amd64: ${{ steps.out-amd64.outputs.INDEX_DIGEST }}
       INDEX_DIGEST_arm64: ${{ steps.out-arm64.outputs.INDEX_DIGEST }}
