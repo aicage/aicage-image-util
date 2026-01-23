@@ -25,6 +25,7 @@ jobs:
     outputs:
       GIT_REF: ${{ steps.ref.outputs.GIT_REF }}
       UNIQUE: ${{ steps.ref.outputs.UNIQUE }}
+      VERSION_TAG: ${{ steps.ref.outputs.VERSION_TAG }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.1
@@ -39,12 +40,15 @@ jobs:
               echo "Git tag is empty for latest release" >&2
               exit 1
             fi
+            VERSION_TAG="${GIT_REF}"
           else
-            GIT_REF="${GITHUB_SHA::7}"
+            GIT_REF="${GITHUB_REF_NAME}"
+            VERSION_TAG="${GITHUB_SHA::7}"
           fi
           {
             echo "GIT_REF=${GIT_REF}"
             echo "UNIQUE=${GITHUB_SHA::7}-$(uuidgen)"
+            echo "VERSION_TAG=${VERSION_TAG}"
           } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
   lint:
