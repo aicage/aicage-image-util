@@ -43,8 +43,7 @@ jobs:
           fi
           {
             echo "GIT_REF=${GIT_REF}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Git ref: ${GIT_REF}"
+          } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint for ${{ needs.resolve-ref.outputs.GIT_REF }}
