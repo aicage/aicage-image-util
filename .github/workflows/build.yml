@@ -17,12 +17,15 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  actions: read
 
 jobs:
   resolve-ref:
     runs-on: ubuntu-latest
     outputs:
       GIT_REF: ${{ steps.ref.outputs.GIT_REF }}
+      UNIQUE: ${{ steps.ref.outputs.UNIQUE }}
+      VERSION_TAG: ${{ steps.ref.outputs.VERSION_TAG }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.1
@@ -37,13 +40,16 @@ jobs:
               echo "Git tag is empty for latest release" >&2
               exit 1
             fi
+            VERSION_TAG="${GIT_REF}"
           else
             GIT_REF="${GITHUB_REF_NAME}"
+            VERSION_TAG="${GITHUB_SHA::7}"
           fi
           {
             echo "GIT_REF=${GIT_REF}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Git ref: ${GIT_REF}"
+            echo "UNIQUE=${GITHUB_SHA::7}-$(uuidgen)"
+            echo "VERSION_TAG=${VERSION_TAG}"
+          } | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint for ${{ needs.resolve-ref.outputs.GIT_REF }}
@@ -92,14 +98,12 @@ jobs:
     env:
       PLATFORM: ${{ matrix.platform }}
       ARCH_SUFFIX: ${{ matrix.arch }}
-      ROOT_DIR: ${{ github.workspace }}
       AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
       IMAGE_NAME: ghcr.io/aicage/aicage-image-util
-      MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version
-      IMAGE_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}
-      IMAGE_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version-${{ matrix.arch }}
-      IMAGE_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-${{ matrix.arch }}-test
+      IMAGE_TEST_TAG: ${{ needs.resolve-ref.outputs.UNIQUE }}-${{ matrix.arch }}-test
+    outputs:
+      INDEX_DIGEST_amd64: ${{ steps.out-amd64.outputs.INDEX_DIGEST }}
+      INDEX_DIGEST_arm64: ${{ steps.out-arm64.outputs.INDEX_DIGEST }}
 
     steps:
       - name: Checkout
@@ -129,154 +133,37 @@ jobs:
           provenance: true
           platforms: ${{ env.PLATFORM }}
           tags: |
-            ${{ env.IMAGE_TEST_TAG }}
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TEST_TAG }}
           labels: |
             org.opencontainers.image.description=Utility image for aicage runtime tasks
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.0.0
-
-      - name: Download agents from 'aicage-image' and test their version.sh
+      - name: Export digest (amd64)
+        id: out-amd64
+        if: matrix.arch == 'amd64'
         run: |
           set -euo pipefail
-          TMPDIR="$(mktemp -d)" || (echo "Failed to create temp dir" >&2 && exit 1)
-          scripts/get-aicage-release-artifact.sh aicage-image "${TMPDIR}"
-          scripts/version-image-check.sh "${TMPDIR}"/agents "${IMAGE_TEST_TAG}"
-          rm -rf "${TMPDIR}"
+          (
+            echo "INDEX_DIGEST=${{ steps.build_image.outputs.digest }}"
+          ) | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
-      - name: Sign image with cosign
+      - name: Export digest (arm64)
+        id: out-arm64
+        if: matrix.arch == 'arm64'
         run: |
           set -euo pipefail
-          cosign sign --yes \
-            "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
+          (
+            echo "INDEX_DIGEST=${{ steps.build_image.outputs.digest }}"
+          ) | tee /dev/stderr >> "$GITHUB_OUTPUT"
 
-      - name: Verify image signature
-        run: |
-          set -euo pipefail
-          cosign verify \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp \
-              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
-            "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
-
-      - name: Publish architecture-specific tags
-        run: |
-          set -euo pipefail
-          docker buildx imagetools create \
-            --tag "${IMAGE_VERSION_TAG}" \
-            --tag "${IMAGE_PURPOSE_TAG}" \
-            "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
-
-      - name: Install ORAS
-        uses: oras-project/setup-oras@v1
-
-      - name: Delete test image tag
-        run: |
-          set -euo pipefail
-          oras manifest delete "${IMAGE_TEST_TAG}"
-
-      - name: Save image digest
-        run: |
-          set -euo pipefail
-          printf '%s\n' "${{ steps.build_image.outputs.digest }}" > digest.txt
-
-      - name: Upload image digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: digest-${{ matrix.arch }}
-          path: digest.txt
-          retention-days: 1
-
-  manifest:
-    name: Publish multi-arch manifest
-    runs-on: ubuntu-latest
-    needs: [build, resolve-ref]
-    env:
-      ROOT_DIR: ${{ github.workspace }}
-      AICAGE_VERSION: ${{ needs.resolve-ref.outputs.GIT_REF }}
-      IMAGE_NAME: ghcr.io/aicage/aicage-image-util
-      MANIFEST_VERSION_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}
-      MANIFEST_PURPOSE_TAG: ghcr.io/aicage/aicage-image-util:agent-version
-      MANIFEST_TEST_TAG: ghcr.io/aicage/aicage-image-util:${{ needs.resolve-ref.outputs.GIT_REF }}-test
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.1
-        with:
-          ref: ${{ needs.resolve-ref.outputs.GIT_REF }}
-
-      - name: Download amd64 digest
-        uses: actions/download-artifact@v4
-        with:
-          name: digest-amd64
-          path: digest/amd64
-
-      - name: Download arm64 digest
-        uses: actions/download-artifact@v4
-        with:
-          name: digest-arm64
-          path: digest/arm64
-
-      - name: Load digests
-        run: |
-          set -euo pipefail
-          DIGEST_AMD64="$(cat digest/amd64/digest.txt)"
-          DIGEST_ARM64="$(cat digest/arm64/digest.txt)"
-          {
-            echo "AICAGE_IMAGE_DIGEST_amd64=${DIGEST_AMD64}"
-            echo "AICAGE_IMAGE_DIGEST_arm64=${DIGEST_ARM64}"
-          } >> "$GITHUB_ENV"
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3.11.1
-        with:
-          driver: docker-container
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish test multi-arch manifest
-        run: |
-          set -euo pipefail
-          docker buildx imagetools create \
-            --tag "${MANIFEST_TEST_TAG}" \
-            "${AICAGE_IMAGE_DIGEST_amd64}" \
-            "${AICAGE_IMAGE_DIGEST_arm64}"
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.0.0
-
-      - name: Sign multi-arch manifest
-        run: |
-          set -euo pipefail
-          cosign sign --yes \
-            "${MANIFEST_TEST_TAG}"
-
-      - name: Verify multi-arch manifest signature
-        run: |
-          set -euo pipefail
-          cosign verify \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp \
-              "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/.*@refs/.*/.*$" \
-            "${MANIFEST_TEST_TAG}"
-
-      - name: Publish final multi-arch manifest tags
-        run: |
-          set -euo pipefail
-          docker buildx imagetools create \
-            --tag "${MANIFEST_VERSION_TAG}" \
-            --tag "${MANIFEST_PURPOSE_TAG}" \
-            "${MANIFEST_TEST_TAG}"
-
-      - name: Install ORAS
-        uses: oras-project/setup-oras@v1
-
-      - name: Delete test manifest tag
-        run: |
-          set -euo pipefail
-          oras manifest delete "${MANIFEST_TEST_TAG}"
+  multiarch:
+    name: Run multi-arch sign/provenance/publish
+    needs: [resolve-ref, build]
+    uses: aicage/github-actions/.github/workflows/multiarch-image-build-sign-provenance.yml@0.1.4
+    with:
+      image_ref: ghcr.io/aicage/aicage-image-util
+      version_tag: ${{ needs.resolve-ref.outputs.VERSION_TAG }}
+      purpose_tag: agent-version
+      index_digest_amd64: ${{ needs.build.outputs.INDEX_DIGEST_amd64 }}
+      index_digest_arm64: ${{ needs.build.outputs.INDEX_DIGEST_arm64 }}
+      actions_ref: 0.1.4
+    secrets: inherit
