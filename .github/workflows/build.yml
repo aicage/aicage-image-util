@@ -39,7 +39,7 @@ jobs:
               exit 1
             fi
           else
-            GIT_REF="${GITHUB_REF_NAME}"
+            GIT_REF="${{ github.ref }}"
           fi
           {
             echo "GIT_REF=${GIT_REF}"
