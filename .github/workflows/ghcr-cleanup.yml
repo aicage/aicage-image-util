@@ -1,0 +1,112 @@
+name: GHCR Cleanup
+
+"on":
+  # Weekly on Sunday at 03:15 UTC
+  schedule:
+    - cron: "15 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (recommended first)"
+        type: boolean
+        default: true
+      log_level:
+        description: "Action log level"
+        type: choice
+        options:
+          - info
+          - debug
+          - warn
+          - error
+        default: info
+
+env:
+  # High-level workflow knobs for easy reuse
+  PACKAGE_NAME: aicage-image-util
+  RETENTION_DAYS: 30
+  RELEASE_TAG_KEEP_COUNT: 3
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prepare-retention-regex:
+    name: Prepare retention regex
+    runs-on: ubuntu-latest
+    outputs:
+      keep_tags_regex: ${{ steps.regex.outputs.keep_tags_regex }}
+      release_list: ${{ steps.regex.outputs.release_list }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Build release list and keep-regex
+        id: regex
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          N="${RELEASE_TAG_KEEP_COUNT}"
+          if ! [[ "${N}" =~ ^[0-9]+$ ]]; then
+            echo "RELEASE_TAG_KEEP_COUNT must be an integer, got: ${N}" >&2
+            exit 1
+          fi
+
+          git fetch --tags --force
+
+          # Default source of kept release tags (modular point for other repos):
+          # last N tags by semantic version ordering.
+          mapfile -t TAGS < <(git tag -l --sort=-version:refname | head -n "${N}")
+
+          if (( ${#TAGS[@]} == 0 )); then
+            RELEASE_LIST=""
+          else
+            ESCAPED_TAGS=()
+            for tag in "${TAGS[@]}"; do
+              # Escape regex metacharacters in tag names.
+              escaped="$(printf '%s' "${tag}" | sed -E 's/[][(){}.^$*+?|\\-]/\\\\&/g')"
+              ESCAPED_TAGS+=("${escaped}")
+            done
+            RELEASE_LIST="$(IFS='|'; echo "${ESCAPED_TAGS[*]}")"
+          fi
+
+          if [[ -n "${RELEASE_LIST}" ]]; then
+            KEEP_TAGS_REGEX="^(agent-version|${RELEASE_LIST})$"
+          else
+            KEEP_TAGS_REGEX="^(agent-version)$"
+          fi
+
+          {
+            echo "release_list=${RELEASE_LIST}"
+            echo "keep_tags_regex=${KEEP_TAGS_REGEX}"
+          } | tee /dev/stderr >> "${GITHUB_OUTPUT}"
+
+  ghcr-cleanup:
+    name: GHCR cleanup
+    runs-on: ubuntu-latest
+    needs: prepare-retention-regex
+
+    steps:
+      - name: Cleanup candidate images
+        uses: dataaxiom/ghcr-cleanup-action@v1.0.16
+        with:
+          token: ${{ secrets.GHCR_CLEANUP_PAT != '' && secrets.GHCR_CLEANUP_PAT || github.token }}
+
+          owner: ${{ github.repository_owner }}
+          repository: ${{ github.event.repository.name }}
+          package: ${{ env.PACKAGE_NAME }}
+
+          # OR retention:
+          # - keep tags matching keep_tags_regex (and related manifests/referrers)
+          # - keep anything newer than RETENTION_DAYS by only processing older images
+          use-regex: true
+          delete-tags: '.*'
+          exclude-tags: ${{ needs.prepare-retention-regex.outputs.keep_tags_regex }}
+          older-than: ${{ env.RETENTION_DAYS }} days
+          delete-untagged: true
+
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          log-level: ${{ github.event_name == 'workflow_dispatch' && inputs.log_level || 'info' }}
