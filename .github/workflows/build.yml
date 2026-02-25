@@ -3,7 +3,8 @@ run-name: Build image util (${{ github.ref_name }})
 
 "on":
   schedule:
-    - cron: "0 2 * * 2"
+    # Weekly on Tuesday at 02:23 UTC
+    - cron: "23 2 * * 2"
   push:
     tags:
       - "*"
