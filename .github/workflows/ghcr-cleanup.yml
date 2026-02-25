@@ -1,9 +1,9 @@
 name: GHCR Cleanup
 
 "on":
-  # Weekly on Sunday at 03:41 UTC
+  # Weekly on Wednesday at 03:41 UTC
   schedule:
-    - cron: "41 3 * * 0"
+    - cron: "41 3 * * 3"
   workflow_dispatch:
     inputs:
       dry_run:
