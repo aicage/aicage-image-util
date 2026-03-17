@@ -143,5 +143,4 @@ jobs:
       purpose_tag: agent-version
       index_digest_amd64: ${{ needs.build.outputs.INDEX_DIGEST_amd64 }}
       index_digest_arm64: ${{ needs.build.outputs.INDEX_DIGEST_arm64 }}
-      actions_ref: 0.2.0
     secrets: inherit
