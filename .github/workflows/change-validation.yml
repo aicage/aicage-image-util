@@ -1,0 +1,14 @@
+name: Change Validation
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+    with:
+      git_ref: ${{ github.ref }}
