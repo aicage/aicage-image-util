@@ -135,8 +135,7 @@ jobs:
   multiarch:
     name: Run multi-arch sign/provenance/publish
     needs: [resolve-ref, build]
-    uses: >-
-      aicage/github-actions/.github/workflows/multiarch-image-build-sign-provenance.yml@c1ecf72221edf0760415b4a0ac8a0d26f8c0f992
+    uses: aicage/github-actions/.github/workflows/multiarch-image-build-sign-provenance.yml@c1ecf72221edf0760415b4a0ac8a0d26f8c0f992
     with:
       actions_ref: 0.2.7
       image_ref: ghcr.io/aicage/aicage-image-util
