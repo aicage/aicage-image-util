@@ -138,6 +138,7 @@ jobs:
     uses: >-
       aicage/github-actions/.github/workflows/multiarch-image-build-sign-provenance.yml@fc823def5abab69ba67b3dd198d462d82e9ad48a
     with:
+      actions_ref: 0.2.7
       image_ref: ghcr.io/aicage/aicage-image-util
       version_tag: ${{ needs.resolve-ref.outputs.VERSION_TAG }}
       purpose_tag: agent-version
