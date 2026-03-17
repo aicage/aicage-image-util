@@ -105,7 +105,7 @@ jobs:
   ghcr-cleanup:
     name: GHCR cleanup
     needs: prepare-retention-regex
-    uses: aicage/github-actions/.github/workflows/ghcr-cleanup.yml@887af3d1be63de9e17edc72dc4e923f79b1986dd  # 0.2.3
+    uses: aicage/github-actions/.github/workflows/ghcr-cleanup.yml@c1ecf72221edf0760415b4a0ac8a0d26f8c0f992  # 0.2.4
     with:
       owner: ${{ github.repository_owner }}
       repository: ${{ github.event.repository.name }}
