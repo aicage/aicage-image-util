@@ -46,4 +46,4 @@ jobs:
         run: |
           yamllint .
           ruff check .
-          pymarkdown --config .pymarkdown.json scan --recurse --exclude './.venv/' .
+          pymarkdown --config .pymarkdown.json scan --recurse --exclude '.venv/**' .
