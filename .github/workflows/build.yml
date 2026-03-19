@@ -145,7 +145,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use multi-arch publish action
-        uses: gh-workflow/multiarch-image-build-sign-provenance@main
+        uses: gh-workflow/multiarch-image-build-sign-provenance@66d27df6e800ce58642ce65b15798c03d1f673b0  # 0.0.2
         with:
           image_ref: ghcr.io/aicage/aicage-image-util
           tags: |
