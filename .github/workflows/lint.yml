@@ -33,6 +33,11 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
       - name: "Test: Remove Python yq and keep using Go yq"
         run: |
           python -m pip uninstall -y yq
@@ -42,8 +47,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: "Test: Run linters (yamllint, ruff, pymarkdown)"
-        run: |
-          yamllint .
-          ruff check .
-          pymarkdown --config .pymarkdown.json scan --recurse --exclude '.venv/**' .
+      - name: "Test: Run lint.sh"
+        run: scripts/lint.sh
