@@ -128,6 +128,25 @@ jobs:
             org.opencontainers.image.created=${{ steps.oci.outputs.created }}
             org.opencontainers.image.version=${{ needs.resolve-ref.outputs.VERSION_TAG }}
 
+      - name: "Test: Verify OCI labels on util image"
+        run: |
+          set -euo pipefail
+          expected_revision="${{ steps.oci.outputs.revision }}"
+          expected_created="${{ steps.oci.outputs.created }}"
+          expected_version="${{ needs.resolve-ref.outputs.VERSION_TAG }}"
+          docker pull "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}"
+          docker image inspect "${IMAGE_NAME}@${{ steps.build_image.outputs.digest }}" \
+            | jq -e \
+              --arg expected_revision "$expected_revision" \
+              --arg expected_created "$expected_created" \
+              --arg expected_version "$expected_version" '
+              .[0].Config.Labels["org.opencontainers.image.description"]
+                == "Utility image for aicage runtime tasks"
+              and .[0].Config.Labels["org.opencontainers.image.revision"] == $expected_revision
+              and .[0].Config.Labels["org.opencontainers.image.created"] == $expected_created
+              and .[0].Config.Labels["org.opencontainers.image.version"] == $expected_version
+            ' >/dev/null
+
       - name: Export digest (amd64)
         id: out-amd64
         if: matrix.arch == 'amd64'
@@ -159,6 +178,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use multi-arch publish action
+        id: publish
         uses: gh-workflow/multiarch-image-publish@0.1.6
         with:
           image_ref: ghcr.io/aicage/aicage-image-util
@@ -176,3 +196,26 @@ jobs:
             org.opencontainers.image.revision=${{ needs.build.outputs.REVISION }}
             org.opencontainers.image.created=${{ needs.build.outputs.CREATED }}
             org.opencontainers.image.version=${{ needs.resolve-ref.outputs.VERSION_TAG }}
+
+      - name: Verify OCI annotations on published manifest
+        run: |
+          set -euo pipefail
+          expected_revision="${{ needs.build.outputs.REVISION }}"
+          expected_created="${{ needs.build.outputs.CREATED }}"
+          expected_version="${{ needs.resolve-ref.outputs.VERSION_TAG }}"
+          docker buildx imagetools inspect \
+            --raw "ghcr.io/aicage/aicage-image-util@${{ steps.publish.outputs.manifest_digest }}" \
+            | jq -e \
+              --arg expected_revision "$expected_revision" \
+              --arg expected_created "$expected_created" \
+              --arg expected_version "$expected_version" '
+              .annotations["org.opencontainers.image.title"] == "aicage-image-util"
+              and .annotations["org.opencontainers.image.description"]
+                == "Utility image for aicage runtime tasks"
+              and .annotations["org.opencontainers.image.source"]
+                == "https://github.com/aicage/aicage-image-util"
+              and .annotations["org.opencontainers.image.licenses"] == "Apache-2.0"
+              and .annotations["org.opencontainers.image.revision"] == $expected_revision
+              and .annotations["org.opencontainers.image.created"] == $expected_created
+              and .annotations["org.opencontainers.image.version"] == $expected_version
+            ' >/dev/null
