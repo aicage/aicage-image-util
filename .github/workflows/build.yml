@@ -88,6 +88,15 @@ jobs:
         with:
           ref: ${{ needs.resolve-ref.outputs.GIT_REF }}
 
+      - name: Resolve OCI labels
+        id: oci
+        run: |
+          set -euo pipefail
+          {
+            echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "revision=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
         with:
@@ -113,6 +122,9 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TEST_TAG }}
           labels: |
             org.opencontainers.image.description=Utility image for aicage runtime tasks
+            org.opencontainers.image.revision=${{ steps.oci.outputs.revision }}
+            org.opencontainers.image.created=${{ steps.oci.outputs.created }}
+            org.opencontainers.image.version=${{ needs.resolve-ref.outputs.VERSION_TAG }}
 
       - name: Export digest (amd64)
         id: out-amd64
