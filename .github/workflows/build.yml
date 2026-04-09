@@ -118,7 +118,8 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          provenance: true
+          provenance: mode=max
+          sbom: true
           platforms: ${{ env.PLATFORM }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TEST_TAG }}
