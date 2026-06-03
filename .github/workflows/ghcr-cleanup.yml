@@ -95,12 +95,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup candidate images
-        uses: dataaxiom/ghcr-cleanup-action@f092b48ba3b604b2a83690dc4b2bbb3392e1045f  # v1.2.1
+        uses: ghcr-manager/ghcr-manager@ac2765c349d2724071a7e2fd41334c2dcf7304b7  # 0.9.10
         with:
+          command: cleanup
           token: ${{ secrets.GHCR_CLEANUP_PAT != '' && secrets.GHCR_CLEANUP_PAT || github.token }}
           owner: ${{ github.repository_owner }}
-          repository: ${{ github.event.repository.name }}
           package: ${{ needs.prepare-retention-regex.outputs.package_name }}
+          upload-artifacts: true
           use-regex: true
           delete-tags: '.*'
           keep-n-tagged: ${{ github.event_name == 'workflow_dispatch' && inputs.keep-n-tagged || 3 }}
