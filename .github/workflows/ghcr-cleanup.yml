@@ -94,8 +94,8 @@ jobs:
     needs: prepare-retention-regex
     runs-on: ubuntu-latest
     steps:
-      - name: Cleanup candidate images
-        uses: ghcr-manager/ghcr-manager@ac2765c349d2724071a7e2fd41334c2dcf7304b7  # 0.9.10
+      - name: Cleanup old images
+        uses: ghcr-manager/ghcr-cleanup-manager@ca3378155f9431abd2d7cf6634fd262b4369358c  # v1.1.4
         with:
           command: cleanup
           token: ${{ secrets.GHCR_CLEANUP_PAT != '' && secrets.GHCR_CLEANUP_PAT || github.token }}
