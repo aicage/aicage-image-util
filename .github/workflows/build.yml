@@ -27,7 +27,7 @@ jobs:
       VERSION_TAG: ${{ steps.ref.outputs.VERSION_TAG }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Resolve git ref
@@ -88,7 +88,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.resolve-ref.outputs.GIT_REF }}
@@ -108,7 +108,7 @@ jobs:
           driver: docker-container
 
       - name: Log in to the container registry
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0  # v4.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -133,7 +133,7 @@ jobs:
             org.opencontainers.image.version=${{ needs.resolve-ref.outputs.VERSION_TAG }}
 
       - name: Remove test tag on image
-        uses: ghcr-manager/ghcr-untag-action@ab3e570fdd6d67415ed325bedf29f3ec0777add1  # v1.0.6
+        uses: ghcr-manager/ghcr-untag-action@952822b03f7c536658dd68fb17f802f52451276e  # v1.0.8
         with:
           token: ${{ github.token }}
           owner: aicage
@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Log in to the container registry
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0  # v4.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -200,7 +200,7 @@ jobs:
 
       - name: Use multi-arch publish action
         id: publish
-        uses: gh-workflow/multiarch-image-publish@c5eac5dd8f7ed6b39fffc6e2c2242966b4917260  # 0.2.1
+        uses: gh-workflow/multiarch-image-publish@310d8b3eb42bc5d1dc6746e70e449b93f63a41af  # 0.2.2
         with:
           image_ref: ghcr.io/aicage/aicage-image-util
           tags: |
