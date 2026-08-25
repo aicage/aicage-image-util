@@ -6,4 +6,4 @@ pytest-cov>=7.1.0,<8
 yamllint>=1.38.0,<2
 
 # Updates due to reports by 'osv-scanner'
-pygments>=2.20.0,<3
+pygments>=2.21.0,<3
